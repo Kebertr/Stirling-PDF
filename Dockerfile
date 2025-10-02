@@ -75,6 +75,8 @@ RUN echo "@main https://dl-cdn.alpinelinux.org/alpine/edge/main" | tee -a /etc/a
     py3-pip \
     py3-pillow@testing \
     py3-pdf2image@testing \
+    # PS/EPS Conversion
+    ghostscript \
     # URW Base 35 fonts for better PDF rendering
     font-urw-base35 && \
     python3 -m venv /opt/venv && \

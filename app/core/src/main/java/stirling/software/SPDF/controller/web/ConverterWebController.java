@@ -131,6 +131,13 @@ public class ConverterWebController {
         return "convert/pdf-to-pdfa";
     }
 
+    @GetMapping("/pdf-to-pseps")
+    @Hidden
+    public String pdfToPsEps(Model model) {
+        model.addAttribute("currentPage", "pdf-to-pseps");
+        return "convert/pdf-to-pseps";
+    }
+
     @GetMapping("/eml-to-pdf")
     @Hidden
     public String convertEmlToPdfForm(Model model) {

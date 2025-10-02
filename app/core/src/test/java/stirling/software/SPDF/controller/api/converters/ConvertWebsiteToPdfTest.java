@@ -1,9 +1,8 @@
 package stirling.software.SPDF.controller.api.converters;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -22,12 +21,16 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.multipart.MultipartFile;
 
+import stirling.software.SPDF.model.api.converters.PdfToPsAndEpsRequest;
 import stirling.software.SPDF.model.api.converters.UrlToPdfRequest;
 import stirling.software.common.configuration.RuntimePathConfig;
 import stirling.software.common.model.ApplicationProperties;
@@ -209,6 +212,90 @@ public class ConvertWebsiteToPdfTest {
             assertFalse(
                     Files.exists(outPath), "Temp-Output-Datei sollte nach dem Call gelöscht sein");
         }
+    }
+
+    @Test
+    void testPDFToPs() throws Exception {
+        // Locate the file inside src/test/resources (or src/test/resources/cert/)
+        File pdfFile = new ClassPathResource("certs/sample.pdf").getFile();
+
+        MultipartFile file =
+                new MockMultipartFile(
+                        "fileInput",
+                        "sample.pdf",
+                        "application/pdf",
+                        Files.readAllBytes(pdfFile.toPath()));
+
+        File result = new ConvertPDFToPsAndEps().convertToPsOrEps(file, "ps");
+        assertTrue(result.exists(), "Output file should be created");
+        System.out.println("Output file: " + result.getAbsolutePath());
+    }
+
+    @Test
+    void testProcessPdfToPs() throws Exception {
+        // Arrange – create a fake PDF file in memory
+        byte[] dummyPdf = "%PDF-1.4\n%EOF".getBytes(); // minimal fake PDF
+        MockMultipartFile inputFile =
+                new MockMultipartFile("fileInput", "sample.pdf", "application/pdf", dummyPdf);
+
+        PdfToPsAndEpsRequest request = new PdfToPsAndEpsRequest();
+        request.setFileInput(inputFile);
+        request.setOutputFormat("ps");
+
+        ConvertPDFToPsAndEps controller =
+                new ConvertPDFToPsAndEps() {
+                    // override convertToPsOrEps so we don’t need real Ghostscript in test
+                    @Override
+                    public File convertToPsOrEps(MultipartFile f, String format)
+                            throws IOException, InterruptedException {
+                        File temp = File.createTempFile("test", "." + format);
+                        Files.write(temp.toPath(), "FAKE-PS-CONTENT".getBytes());
+                        return temp;
+                    }
+                };
+
+        // Act
+        ResponseEntity<byte[]> response = controller.processPdfToPsOrEps(request);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCodeValue());
+        assertEquals("application/postscript", response.getHeaders().getContentType().toString());
+
+        byte[] body = response.getBody();
+        assertNotNull(body);
+        assertTrue(new String(body).contains("FAKE-PS-CONTENT"));
+    }
+
+    @Test
+    void testProcessPdfToEps() throws Exception {
+        // Arrange – fake EPS conversion
+        byte[] dummyPdf = "%PDF-1.4\n%EOF".getBytes();
+        MockMultipartFile inputFile =
+                new MockMultipartFile("fileInput", "sample.pdf", "application/pdf", dummyPdf);
+
+        PdfToPsAndEpsRequest request = new PdfToPsAndEpsRequest();
+        request.setFileInput(inputFile);
+        request.setOutputFormat("eps");
+
+        ConvertPDFToPsAndEps controller =
+                new ConvertPDFToPsAndEps() {
+                    @Override
+                    public File convertToPsOrEps(MultipartFile f, String format)
+                            throws IOException, InterruptedException {
+                        File temp = File.createTempFile("test", "." + format);
+                        Files.write(temp.toPath(), "FAKE-EPS-CONTENT".getBytes());
+                        return temp;
+                    }
+                };
+
+        // Act
+        ResponseEntity<byte[]> response = controller.processPdfToPsOrEps(request);
+
+        // Assert
+        assertEquals(200, response.getStatusCodeValue());
+        assertEquals("application/eps", response.getHeaders().getContentType().toString());
+        assertTrue(new String(response.getBody()).contains("FAKE-EPS-CONTENT"));
     }
 
     @Test
