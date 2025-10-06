@@ -47,19 +47,17 @@ public class ConvertPDFToPsAndEps {
             // run Ghostscript conversion
             outFile = convertToPsOrEps(inputFile, format);
 
-            // Pick MIME type
-            String mimeType = "ps".equals(format) ? "application/postscript" : "application/eps";
+            String application = "ps".equals(format) ? "application/postscript" : "application/eps";
 
-            // Build filename
             String outName =
                     inputFile.getOriginalFilename().replaceFirst("[.][^.]+$", "")
                             + "_converted."
                             + format;
 
-            // Wrap in response (like other controllers do)
+            // Making the download
             byte[] bytes = Files.readAllBytes(outFile.toPath());
             return WebResponseUtils.bytesToWebResponse(
-                    bytes, outName, MediaType.parseMediaType(mimeType));
+                    bytes, outName, MediaType.parseMediaType(application));
 
         } finally {
             if (outFile != null) {
@@ -92,16 +90,15 @@ public class ConvertPDFToPsAndEps {
             command.add("-o");
             command.add(outputPath.toString());
             command.add(inputPath.toString());
+            // Runs the ghostscript command
             ProcessExecutorResult result =
                     ProcessExecutor.getInstance(ProcessExecutor.Processes.GHOSTSCRIPT)
                             .runCommandWithOutputHandling(command);
 
             // Check success
-            if (result == null || result.getRc() != 0 || !Files.exists(outputPath)) {
+            if (result == null || !Files.exists(outputPath)) {
                 throw new IllegalStateException("Ghostscript conversion failed");
             }
-
-            // Return the generated file for the controller to stream back to the client
             return outputPath.toFile();
         } finally {
             // Clean up the temporary files
